@@ -1,0 +1,26 @@
+{
+  "plugins": [
+    {
+      "enabled": true,
+      "name": "pii-masking",
+      "path": "./build/pii-masking.so",
+      "version": 1,
+      "display_name": "PII 数据脱敏",
+      "config": {
+        "enable": true,
+        "mask_phone": true,
+        "mask_email": true,
+        "mask_id_card": true,
+        "mask_bank_card": true,
+        "mask_ip": true,
+        "log_desensitized": true,
+        "desensitization_rules": [
+          {
+            "provider": "openai",
+            "model": "gpt-4o"
+          }
+        ]
+      }
+    }
+  ]
+}
