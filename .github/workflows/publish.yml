@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/bifrost
+  IMAGE: ghcr.io/${{ github.repository_owner }}/bifrost
 
 jobs:
   build-and-push:
@@ -19,8 +19,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-      actions: write
-      checks: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
