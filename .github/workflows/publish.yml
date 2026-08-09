@@ -43,7 +43,7 @@ jobs:
           platforms: linux/amd64  
           push: true
           tags: |
-            bifrost:latest
-            bifrost:${{ github.ref_name }}
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=min
