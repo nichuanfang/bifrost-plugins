@@ -1,10 +1,8 @@
-# 版本约束: 修改请同步更新
-ARG BIFROST_TAG=transports/v1.6.9
-ARG PLUGIN_DIR=plugins
-
 # ---- 拉取 bifrost 源码 ----
 FROM alpine:3.23.4 AS bifrost-source
-ARG BIFROST_TAG
+
+# 版本约束: 修改请同步更新
+ARG BIFROST_TAG=transports/v1.6.9
 RUN apk add --no-cache git && \
     git clone --depth 1 --branch "${BIFROST_TAG}" https://github.com/maximhq/bifrost.git /src
 
@@ -44,7 +42,7 @@ WORKDIR /app
 RUN apk upgrade --no-cache && \                                                                                                                   
   apk add --no-cache gcc musl-dev binutils binutils-gold                                                                                        
 ENV CGO_ENABLED=1 GOOS=linux                                                                                                                      
-ARG PLUGIN_DIR                                                                                                                                    
+ARG PLUGIN_DIR=plugins                                                                                                        
 COPY ${PLUGIN_DIR}/ ${PLUGIN_DIR}/                                                                                                                
 RUN mkdir -p /app/build && \                                                                                                                      
   for dir in ${PLUGIN_DIR}/*/; do \                                                                                                             
