@@ -37,39 +37,13 @@ RUN go build \
 RUN test -f /app/main || (echo "Build failed" && exit 1)
 
 # ---- 构建插件 ----
-# FROM golang:1.26.5-alpine3.23@sha256:622e56dbc11a8cfe87cafa2331e9a201877271cbff918af53d3be315f3da88cc AS plugin-builder                           
-# WORKDIR /app                                                                                                                                      
-# RUN apk upgrade --no-cache && \
-#     apk add --no-cache gcc musl-dev sqlite-dev binutils binutils-gold                                                                                        
-# ENV CGO_ENABLED=1 GOOS=linux GOWORK=off                                                                                                                  
-# ARG PLUGIN_DIR=plugins                                                                                                        
-# COPY ${PLUGIN_DIR}/ ${PLUGIN_DIR}/                                                                                                                
-# RUN mkdir -p /app/build && \                                                                                                                      
-#   for dir in ${PLUGIN_DIR}/*/; do \                                                                                                             
-#       if [ -f "$$dir/main.go" ]; then \                                                                                                         
-#           plugin_name=$$(basename "$$dir"); \                                                                                                   
-#           echo "=> Building plugin: $$plugin_name"; \                                                                                           
-#           cd "$$dir" && go build -buildmode=plugin -ldflags="-w -s" -trimpath \                                                                 
-#               -o /app/build/$${plugin_name}.so main.go && cd /app; \                                                                            
-#       fi \                                                                                                                                      
-#   done && \                                                                                                                                     
-#   ls -lh /app/build/
-
-# ---- 构建插件 ----
 FROM golang:1.26.5-alpine3.23@sha256:622e56dbc11a8cfe87cafa2331e9a201877271cbff918af53d3be315f3da88cc AS plugin-builder                           
-
 WORKDIR /app                                                                                                                                      
-
-# 安装 CGO 必须的 C 工具链
 RUN apk upgrade --no-cache && \                                                                                                                   
     apk add --no-cache gcc musl-dev binutils binutils-gold                                                                                        
-
 ENV CGO_ENABLED=1 GOOS=linux GOWORK=off
-
 ARG PLUGIN_DIR=plugins                                                                                                        
 COPY ${PLUGIN_DIR}/ ${PLUGIN_DIR}/                                                                                                                
-
-# 使用 Docker 的 Build Cache 加速依赖下载和构建过程
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     mkdir -p /app/build && \                                                                                                                      
