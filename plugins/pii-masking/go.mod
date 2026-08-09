@@ -1,13 +1,13 @@
 module github.com/nichuanfang/bifrost-plugins/pii-masking
 
-go 1.26.4
+go 1.26.5
 
-require github.com/maximhq/bifrost/core v1.7.3
+require github.com/maximhq/bifrost/core v1.7.7
 
 require (
 	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
-	github.com/buger/jsonparser v1.1.2 // indirect
+	github.com/buger/jsonparser v1.2.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.1 // indirect
 	github.com/bytedance/sonic/loader v0.5.1 // indirect
