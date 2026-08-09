@@ -1,8 +1,10 @@
+# 版本约束: 修改请同步更新
+ARG BIFROST_TAG=transports/v1.6.9
+
 # ---- 拉取 bifrost 源码 ----
 FROM alpine:3.23.4 AS bifrost-source
 
-# 版本约束: 修改请同步更新
-ARG BIFROST_TAG=transports/v1.6.9
+ARG BIFROST_TAG
 RUN apk add --no-cache git && \
     git clone --depth 1 --branch "${BIFROST_TAG}" https://github.com/maximhq/bifrost.git /src
 
@@ -28,10 +30,12 @@ RUN go mod download
 COPY --from=bifrost-source /src/transports/ ./
 COPY --from=ui-builder /app/out ./bifrost-http/ui
 ENV GOWORK=off
-ARG VERSION=unknown
+ARG BIFROST_TAG
+ARG VERSION=${BIFROST_TAG#*transports/v}
 RUN go build \
 -ldflags="-w -s -X main.Version=v${VERSION}" \
--trimpath \
+-a -trimpath \
+-tags "sqlite_static" \
 -o /app/main \
 ./bifrost-http
 RUN test -f /app/main || (echo "Build failed" && exit 1)
