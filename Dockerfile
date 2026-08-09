@@ -67,7 +67,7 @@ RUN apk upgrade --no-cache && \
 apk add --no-cache musl libgcc ca-certificates zlib
 COPY --from=builder /app/main .
 COPY --from=builder /app/docker-entrypoint.sh .
-# COPY --from=plugin-builder /app/build/ ./plugins/
+COPY --from=plugin-builder /app/build/ ./plugins/
 ARG ARG_APP_PORT=8080
 ARG ARG_APP_HOST=0.0.0.0
 ARG ARG_LOG_LEVEL=info
