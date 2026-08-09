@@ -64,9 +64,7 @@ WORKDIR /app
 RUN apk upgrade --no-cache && \                                                                                                                   
     apk add --no-cache gcc musl-dev binutils binutils-gold                                                                                        
 
-ENV CGO_ENABLED=1 \
-    GOOS=linux \
-    GOPROXY=https://goproxy.cn,direct # 建议配置代理，视你的网络环境而定
+ENV CGO_ENABLED=1 GOOS=linux GOWORK=off
 
 ARG PLUGIN_DIR=plugins                                                                                                        
 COPY ${PLUGIN_DIR}/ ${PLUGIN_DIR}/                                                                                                                
