@@ -2,6 +2,7 @@ module github.com/nichuanfang/bifrost-plugins/pii-masking
 
 go 1.26.5
 
+// 版本约束: 修改请同步更新
 require github.com/maximhq/bifrost/core v1.7.7
 
 require (

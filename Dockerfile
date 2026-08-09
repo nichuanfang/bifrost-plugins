@@ -1,8 +1,5 @@
-# 目标 bifrost 发布版本及其内嵌的 core 版本。
-# 升级 bifrost 时保持三者同步: BIFROST_TAG / BIFROST_VERSION / CORE_VERSION。
+# 版本约束: 修改请同步更新
 ARG BIFROST_TAG=transports/v1.6.9
-ARG BIFROST_VERSION=v1.6.9
-ARG CORE_VERSION=v1.7.7
 ARG PLUGIN_DIR=plugins
 
 # ---- 拉取 bifrost 源码 ----
@@ -42,7 +39,23 @@ RUN go build \
 RUN test -f /app/main || (echo "Build failed" && exit 1)
 
 # ---- 构建插件 ----
-# TODO
+FROM golang:1.26.5-alpine3.23@sha256:622e56dbc11a8cfe87cafa2331e9a201877271cbff918af53d3be315f3da88cc AS plugin-builder
+WORKDIR /app
+RUN apk upgrade --no-cache && \
+    apk add --no-cache gcc musl-dev binutils binutils-gold
+ENV CGO_ENABLED=1 GOOS=linux GOWORK=off
+ARG PLUGIN_DIR
+COPY ${PLUGIN_DIR}/ ${PLUGIN_DIR}/
+RUN mkdir -p /app/build && \
+    for dir in ${PLUGIN_DIR}/*/; do \
+        if [ -f "$$dir/main.go" ]; then \
+            plugin_name=$$(basename "$$dir"); \
+            echo "=> Building plugin: $$plugin_name"; \
+            cd "$$dir" && go build -buildmode=plugin -ldflags="-w -s" -trimpath \
+                -o /app/build/$${plugin_name}.so main.go && cd /app; \
+        fi \
+    done && \
+    ls -lh /app/build/
 
 # ---- 运行时 ----
 FROM alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
@@ -51,6 +64,7 @@ RUN apk upgrade --no-cache && \
 apk add --no-cache musl libgcc ca-certificates zlib
 COPY --from=builder /app/main .
 COPY --from=builder /app/docker-entrypoint.sh .
+COPY --from=plugin-builder /app/build/ ./plugins/
 ARG ARG_APP_PORT=8080
 ARG ARG_APP_HOST=0.0.0.0
 ARG ARG_LOG_LEVEL=info
