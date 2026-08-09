@@ -39,8 +39,8 @@ RUN test -f /app/main || (echo "Build failed" && exit 1)
 # ---- 构建插件 ----
 # FROM golang:1.26.5-alpine3.23@sha256:622e56dbc11a8cfe87cafa2331e9a201877271cbff918af53d3be315f3da88cc AS plugin-builder                           
 # WORKDIR /app                                                                                                                                      
-# RUN apk upgrade --no-cache && \                                                                                                                   
-#   apk add --no-cache gcc musl-dev binutils binutils-gold                                                                                        
+# RUN apk upgrade --no-cache && \
+#     apk add --no-cache gcc musl-dev sqlite-dev binutils binutils-gold                                                                                        
 # ENV CGO_ENABLED=1 GOOS=linux GOWORK=off                                                                                                                  
 # ARG PLUGIN_DIR=plugins                                                                                                        
 # COPY ${PLUGIN_DIR}/ ${PLUGIN_DIR}/                                                                                                                
@@ -62,7 +62,7 @@ RUN apk upgrade --no-cache && \
 apk add --no-cache musl libgcc ca-certificates zlib
 COPY --from=builder /app/main .
 COPY --from=builder /app/docker-entrypoint.sh .
-COPY --from=plugin-builder /app/build/ ./plugins/
+# COPY --from=plugin-builder /app/build/ ./plugins/
 ARG ARG_APP_PORT=8080
 ARG ARG_APP_HOST=0.0.0.0
 ARG ARG_LOG_LEVEL=info
