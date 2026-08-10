@@ -1,0 +1,15 @@
+{
+  "plugins": [
+    {
+      "enabled": true,
+      "name": "vision-extension",
+      "path": "/app/plugins/vision-extension.so",
+      "version": 1,
+      "config": {
+        "enabled": true,
+        "target_models": ["gpt-3.5-turbo", "claude-3-haiku-20240307"],
+        "image_placeholder": "[Image provided: this model does not support image input. Image URL: {url}, Detail: {detail}]"
+      }
+    }
+  ]
+}
