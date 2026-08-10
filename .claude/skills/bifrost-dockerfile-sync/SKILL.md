@@ -91,7 +91,11 @@ This stage mirrors the upstream Go build stage (usually `AS builder` or similar)
   `COPY --from=ui-builder /app/out ./bifrost-http/ui` (preserving the existing
   project path convention).
 - `RUN go build ...` → keep the flags and ldflags, especially `-X main.Version=v${VERSION}`
-  which uses `BIFROST_TAG`.
+  which uses `BIFROST_TAG`. **However, remove `-extldflags '-static'` from the
+  `-ldflags` string.** The official upstream build includes it, but bifrost plugins
+  must be dynamically linked (they are loaded as `.so` files by the `plugin` package),
+  and static linking breaks plugin loading. The result should look like:
+  `-ldflags="-w -s -X main.Version=v${VERSION}"`.
 
 Follow upstream for: FROM image, RUN apk add packages, ENV settings,
 go mod download, and the general build flow. Do not drop any existing
