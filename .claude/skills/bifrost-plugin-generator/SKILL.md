@@ -62,7 +62,7 @@ Module path: match existing workspace plugins, else `github.com/nichuanfang/bifr
 
 ### 3. Generate files
 
-Create `plugins/<plugin-name>/` with `main.go`, `go.mod`, `config.example.json`.
+Create `plugins/<plugin-name>/` with `main.go`, `go.mod`, `config.example.json`, `main_test.go`.
 
 #### `main.go`
 
@@ -109,7 +109,7 @@ Do not copy version numbers from memory — only from README (or fallback rules 
     {
       "enabled": true,
       "name": "<plugin-name>",
-      "path": "./build/<plugin-name>.so",
+      "path": "/app/plugins/<plugin-name>.so",
       "version": 1,
       "config": {}
     }
@@ -118,6 +118,15 @@ Do not copy version numbers from memory — only from README (or fallback rules 
 ```
 
 Document every config key the plugin reads.
+
+#### `main_test.go`
+
+Generate tests following the pattern in `references/test-pattern.md`. Key points:
+
+- `package main`, table-driven, zero external deps beyond `github.com/google/go-cmp/cmp`
+- Required: `TestGetName`, `TestInit`, `TestCleanup`, `TestInit_Reload`
+- One `Test<HookName>` per implemented hook, each covering nil-safety, pass-through, and business logic
+- Only generate tests for hooks the plugin actually exports
 
 ### 4. Summarize
 

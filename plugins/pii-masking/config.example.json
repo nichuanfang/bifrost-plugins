@@ -3,7 +3,7 @@
     {
       "enabled": true,
       "name": "pii-masking",
-      "path": "./build/pii-masking.so",
+      "path": "/app/plugins/pii-masking.so",
       "version": 1,
       "display_name": "PII 数据脱敏",
       "config": {
