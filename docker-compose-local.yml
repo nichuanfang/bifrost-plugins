@@ -1,0 +1,32 @@
+services:
+  bifrost-gateway:
+    image: bifrost
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: bifrost
+    restart: unless-stopped
+    networks:
+      - mynet
+    ports:
+      # 网关 API 与 内置 Web UI 复用此端口
+      - "8080:8080"
+    environment:
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+      # 日志级别（debug / info / warn / error）
+      - LOG_LEVEL=info
+      # 日志格式（pretty / json）
+      - LOG_STYLE=pretty
+      # 指定配置文件
+      - BIFROST_CONFIG=/app/data/config.json
+      # 启用 Web UI
+      - BIFROST_ENABLE_UI=true
+      # 加密密钥
+      - BIFROST_ENCRYPTION_KEY=vZjGW%iWubZ0Ol@*Y0GSu98WVTPMoXFn
+    volumes:
+      - ./temp:/app/data
+
+networks:
+  mynet:
+    external: true

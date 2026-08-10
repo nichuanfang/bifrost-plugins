@@ -60,3 +60,4 @@ node_modules/
 config.yaml
 
 build/
+temp/*

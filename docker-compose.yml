@@ -1,0 +1,42 @@
+services:
+  bifrost-gateway:
+    image: ghcr.io/nichuanfang/bifrost:latest
+    container_name: bifrost
+    restart: unless-stopped
+    networks:
+      - mynet
+    expose:
+      # 网关 API 与 内置 Web UI 复用此端口
+      - 8080
+    environment:
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+      # 日志级别（debug / info / warn / error）
+      - LOG_LEVEL=warn
+      # 日志格式（pretty / json）
+      - LOG_STYLE=json
+      # 指定配置文件
+      - BIFROST_CONFIG=/app/config.json
+      # 启用 Web UI
+      - BIFROST_ENABLE_UI=true
+      # 加密密钥
+      - BIFROST_ENCRYPTION_KEY=
+      # PostgreSQL配置
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_USER=root
+      - PG_PASSWORD=
+      - PG_DB=bifrost
+      # Redis配置
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+
+      # 各平台key
+      - ZHIPU_API_KEY=
+    volumes:
+      - ./config.json:/app/data/config.json:ro
+      - ~/data/bifrost:/app/data
+
+networks:
+  mynet:
+    external: true
