@@ -23,7 +23,7 @@ services:
       # 启用 Web UI
       - BIFROST_ENABLE_UI=true
       # 加密密钥
-      - BIFROST_ENCRYPTION_KEY=vZjGW%iWubZ0Ol@*Y0GSu98WVTPMoXFn
+      - BIFROST_ENCRYPTION_KEY=023acaeb0fcd5d3caab0eeb607c96e1a0 
     volumes:
       - ./temp:/app/data
 
