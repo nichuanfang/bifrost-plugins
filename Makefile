@@ -1,4 +1,4 @@
-.PHONY: all build dev clean install help test deps build-all
+.PHONY: build dev clean install help test deps build-all _clean_build_dir
 
 # Colors
 COLOR_RESET   = \033[0m
@@ -62,9 +62,9 @@ help: ## 显示帮助信息
 	@echo ''
 
 _clean_build_dir:
-	@echo "$(COLOR_INFO)Cleaning build directory for $(PLUGIN_NAME)...$(COLOR_RESET)"
-	@rm -rf $(OUTPUT_DIR)
-	@echo "$(COLOR_SUCCESS)✓ Build directory cleaned$(COLOR_RESET)"
+	@echo "$(COLOR_INFO)Cleaning previous build for $(PLUGIN_NAME)...$(COLOR_RESET)"
+	@rm -f $(OUTPUT)
+	@echo "$(COLOR_SUCCESS)✓ Cleaned$(COLOR_RESET)"
 
 build: _clean_build_dir ## 生产构建（推荐用于部署）
 	@mkdir -p $(OUTPUT_DIR)
@@ -99,7 +99,7 @@ install: build ## 构建并安装到 Bifrost 默认插件目录
 
 clean: ## 清理所有构建产物
 	@echo "$(COLOR_INFO)Cleaning all build artifacts...$(COLOR_RESET)"
-	@rm -rf $(PLUGINS_DIR)/*/build
+	@rm -rf $(OUTPUT_DIR)
 	@echo "$(COLOR_SUCCESS)✓ All clean$(COLOR_RESET)"
 
 test: ## 运行测试
