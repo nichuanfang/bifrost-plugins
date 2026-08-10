@@ -1,9 +1,10 @@
 # bifrost插件仓库
 
 ## 版本信息
-- **version**: v1.6.9
-- **tag**: transports/v1.6.9
-- **core**: v1.7.7
+- **go**: 1.26.5
+- **bifrost-version**: v1.6.9
+- **bifrost-tag**: transports/v1.6.9
+- **core-version**: v1.7.7
 
 ## 插件一览
 
