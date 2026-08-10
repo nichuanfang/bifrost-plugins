@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -10,46 +11,53 @@ import (
 )
 
 const (
-	maskReplacement   = "******"
-	ipMaskReplacement = "***.***.***.***"
-	maskPhoneLength   = 11
-	maskIDCardLength  = 18
-	minBankCardLength = 13
+	maskReplacement    = "******"
+	ipMaskReplacement  = "***.***.***.***"
+	maskPhoneLength    = 11
+	maskIDCardLength   = 18
+	minBankCardLength  = 13
+	bankCardKeepPrefix = 4
+	bankCardKeepSuffix = 4
 )
 
-// DesensitizationRules defines a provider/model pair that should be desensitized.
+// MaskingRule defines a provider/model pair whose traffic should be masked.
 // Empty Provider or Model matches any value (wildcard).
-type DesensitizationRules struct {
+type MaskingRule struct {
 	Provider string `json:"provider"`
 	Model    string `json:"model"`
 }
 
-// PluginConfig holds the desensitization plugin configuration.
+// PluginConfig holds the PII masking plugin configuration.
 type PluginConfig struct {
-	Enable               bool                   `json:"enable"`
-	MaskPhone            bool                   `json:"mask_phone"`
-	MaskEmail            bool                   `json:"mask_email"`
-	MaskIDCard           bool                   `json:"mask_id_card"`
-	MaskBankCard         bool                   `json:"mask_bank_card"`
-	MaskIP               bool                   `json:"mask_ip"`
-	CustomKeywords       []string               `json:"custom_keywords"`
-	CustomRegex          []string               `json:"custom_regex"`
-	LogDesensitized      bool                   `json:"log_desensitized"`
-	DesensitizationRules []DesensitizationRules `json:"desensitization_rules"`
+	Enable         bool          `json:"enable"`
+	MaskPhone      bool          `json:"mask_phone"`
+	MaskEmail      bool          `json:"mask_email"`
+	MaskIDCard     bool          `json:"mask_id_card"`
+	MaskBankCard   bool          `json:"mask_bank_card"`
+	MaskIP         bool          `json:"mask_ip"`
+	CustomKeywords []string      `json:"custom_keywords"`
+	CustomRegex    []string      `json:"custom_regex"`
+	LogMasked      bool          `json:"log_desensitized"`
+	MaskingRules   []MaskingRule `json:"desensitization_rules"`
 
 	compiledCustomRegex []*regexp.Regexp
-	keywordReplacer     *strings.Replacer // 预编译关键词替换器
+	keywordReplacer     *strings.Replacer
 }
 
 var globalConfig atomic.Pointer[PluginConfig]
 
 // 全局预编译正则
 var (
-	phoneRegex    = regexp.MustCompile(`\b1[3-9]\d{9}\b`)
-	emailRegex    = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
-	idCardRegex   = regexp.MustCompile(`\b[1-9]\d{5}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b`)
+	// 中国手机号: 1[3-9] + 9位数字
+	phoneRegex = regexp.MustCompile(`\b1[3-9]\d{9}\b`)
+	// 邮箱
+	emailRegex = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+	// 18位身份证号
+	idCardRegex = regexp.MustCompile(`\b[1-9]\d{5}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b`)
+	// 银行卡号: 3-6 开头, 13-19 位
 	bankCardRegex = regexp.MustCompile(`\b[3-6]\d{12,18}\b`)
-	ipRegex       = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+	// IPv4: 每段 0-255, 排除全0和全255可自行判断
+	ipRegex = regexp.MustCompile(`\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b`)
 )
 
 // GetName returns the plugin name.
@@ -62,44 +70,58 @@ func GetName() string {
 // Init parses and applies the plugin configuration.
 func Init(config any) error {
 	cfg := defaultConfig()
-	configMap, ok := config.(map[string]interface{})
-	if !ok {
-		globalConfig.Store(cfg)
-		return nil
-	}
-
-	parseBoolField(configMap, "enable", &cfg.Enable)
-	parseBoolField(configMap, "mask_phone", &cfg.MaskPhone)
-	parseBoolField(configMap, "mask_email", &cfg.MaskEmail)
-	parseBoolField(configMap, "mask_id_card", &cfg.MaskIDCard)
-	parseBoolField(configMap, "mask_bank_card", &cfg.MaskBankCard)
-	parseBoolField(configMap, "mask_ip", &cfg.MaskIP)
-	parseBoolField(configMap, "log_desensitized", &cfg.LogDesensitized)
-
-	cfg.CustomKeywords = parseStringList(configMap, "custom_keywords")
-	cfg.CustomRegex, cfg.compiledCustomRegex = parseRegexList(configMap, "custom_regex")
-	cfg.DesensitizationRules = parseDesensitizationRules(configMap, "desensitization_rules")
-
-	// 预编译关键词替换器，一次遍历替换所有关键词
+	parseConfig(config, cfg)
 	cfg.initKeywordReplacer()
-
+	validateConfig(cfg)
 	globalConfig.Store(cfg)
 	return nil
 }
 
 func defaultConfig() *PluginConfig {
 	return &PluginConfig{
-		Enable:          true,
-		MaskPhone:       true,
-		MaskEmail:       true,
-		MaskIDCard:      true,
-		MaskBankCard:    true,
-		MaskIP:          true,
-		LogDesensitized: false,
+		Enable:       true,
+		MaskPhone:    true,
+		MaskEmail:    true,
+		MaskIDCard:   true,
+		MaskBankCard: true,
+		MaskIP:       true,
 	}
 }
 
-// initKeywordReplacer 预构建关键词替换器，避免多次 ReplaceAll 遍历
+func parseConfig(raw any, c *PluginConfig) {
+	m, ok := raw.(map[string]any)
+	if !ok || m == nil {
+		return
+	}
+
+	parseBoolField(m, "enable", &c.Enable)
+	parseBoolField(m, "mask_phone", &c.MaskPhone)
+	parseBoolField(m, "mask_email", &c.MaskEmail)
+	parseBoolField(m, "mask_id_card", &c.MaskIDCard)
+	parseBoolField(m, "mask_bank_card", &c.MaskBankCard)
+	parseBoolField(m, "mask_ip", &c.MaskIP)
+	parseBoolField(m, "log_desensitized", &c.LogMasked)
+
+	c.CustomKeywords = parseStringList(m, "custom_keywords")
+	c.CustomRegex, c.compiledCustomRegex = parseRegexList(m, "custom_regex")
+	c.MaskingRules = parseMaskingRules(m, "desensitization_rules")
+}
+
+// validateConfig logs warnings for suspicious configurations.
+func validateConfig(c *PluginConfig) {
+	if !c.Enable {
+		return
+	}
+	if len(c.MaskingRules) == 0 {
+		log.Printf("[pii-masking] WARNING: enable=true but desensitization_rules is empty — no traffic will be masked")
+	}
+	if !c.MaskPhone && !c.MaskEmail && !c.MaskIDCard && !c.MaskBankCard && !c.MaskIP &&
+		len(c.CustomKeywords) == 0 && len(c.CustomRegex) == 0 {
+		log.Printf("[pii-masking] WARNING: enable=true but all mask types are disabled — nothing will be masked")
+	}
+}
+
+// initKeywordReplacer pre-builds a keyword replacer to avoid multiple scan passes.
 func (c *PluginConfig) initKeywordReplacer() {
 	if len(c.CustomKeywords) == 0 {
 		return
@@ -113,14 +135,30 @@ func (c *PluginConfig) initKeywordReplacer() {
 
 // ── 配置解析辅助函数 ────────────────────────────────────────────
 
-func parseBoolField(m map[string]interface{}, key string, target *bool) {
-	if v, ok := m[key].(bool); ok {
-		*target = v
+func parseBoolField(m map[string]any, key string, target *bool) {
+	v, ok := m[key]
+	if !ok {
+		return
+	}
+	switch val := v.(type) {
+	case bool:
+		*target = val
+	case string:
+		switch strings.ToLower(val) {
+		case "true":
+			*target = true
+		case "false":
+			*target = false
+		default:
+			log.Printf("[pii-masking] WARNING: invalid value for %q: %q (expected true/false), using default %v", key, val, *target)
+		}
+	default:
+		log.Printf("[pii-masking] WARNING: unexpected type for %q: %T, using default %v", key, v, *target)
 	}
 }
 
-func parseStringList(m map[string]interface{}, key string) []string {
-	raw, ok := m[key].([]interface{})
+func parseStringList(m map[string]any, key string) []string {
+	raw, ok := m[key].([]any)
 	if !ok {
 		return nil
 	}
@@ -134,8 +172,8 @@ func parseStringList(m map[string]interface{}, key string) []string {
 	return result
 }
 
-func parseRegexList(m map[string]interface{}, key string) ([]string, []*regexp.Regexp) {
-	raw, ok := m[key].([]interface{})
+func parseRegexList(m map[string]any, key string) ([]string, []*regexp.Regexp) {
+	raw, ok := m[key].([]any)
 	if !ok {
 		return nil, nil
 	}
@@ -148,7 +186,8 @@ func parseRegexList(m map[string]interface{}, key string) ([]string, []*regexp.R
 		}
 		re, err := regexp.Compile(pattern)
 		if err != nil {
-			continue // 跳过无效正则，不阻断初始化
+			log.Printf("[pii-masking] WARNING: invalid custom regex %q skipped: %v", pattern, err)
+			continue
 		}
 		patterns = append(patterns, pattern)
 		compiled = append(compiled, re)
@@ -156,18 +195,18 @@ func parseRegexList(m map[string]interface{}, key string) ([]string, []*regexp.R
 	return patterns, compiled
 }
 
-func parseDesensitizationRules(m map[string]interface{}, key string) []DesensitizationRules {
-	raw, ok := m[key].([]interface{})
+func parseMaskingRules(m map[string]any, key string) []MaskingRule {
+	raw, ok := m[key].([]any)
 	if !ok {
 		return nil
 	}
-	rules := make([]DesensitizationRules, 0, len(raw))
+	rules := make([]MaskingRule, 0, len(raw))
 	for _, item := range raw {
-		entry, ok := item.(map[string]interface{})
+		entry, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
-		rule := DesensitizationRules{}
+		rule := MaskingRule{}
 		if p, ok := entry["provider"].(string); ok {
 			rule.Provider = strings.TrimSpace(p)
 		}
@@ -181,18 +220,18 @@ func parseDesensitizationRules(m map[string]interface{}, key string) []Desensiti
 
 // ── 核心判断逻辑 ──────────────────────────────────────────────────
 
-// shouldDesensitize 判断请求是否应被执行脱敏。
+// shouldMask 判断请求是否应执行脱敏。
 //
-// 语义：desensitization_rules是需要脱敏的规则集合。
+// masking_rules 是需要脱敏的规则集合（白名单模式）：
 //   - 规则集为空 → 不脱敏（返回 false）
 //   - 不为空 → 匹配规则时才脱敏（返回 true）
 //
-// 规则匹配规则：
+// 规则匹配：
 //   - Provider 为空字符串时视为通配，匹配所有 Provider
 //   - Model 为空字符串时视为通配，匹配所有 Model
-func shouldDesensitize(cfg *PluginConfig, req *schemas.BifrostRequest) bool {
-	if len(cfg.DesensitizationRules) == 0 {
-		return false // 白名单为空 → 不脱敏
+func shouldMask(cfg *PluginConfig, req *schemas.BifrostRequest) bool {
+	if len(cfg.MaskingRules) == 0 {
+		return false
 	}
 	if req == nil || req.ChatRequest == nil {
 		return false
@@ -200,7 +239,7 @@ func shouldDesensitize(cfg *PluginConfig, req *schemas.BifrostRequest) bool {
 	provider := strings.TrimSpace(string(req.ChatRequest.Provider))
 	model := strings.TrimSpace(req.ChatRequest.Model)
 
-	for _, rule := range cfg.DesensitizationRules {
+	for _, rule := range cfg.MaskingRules {
 		pMatch := rule.Provider == "" || strings.EqualFold(rule.Provider, provider)
 		mMatch := rule.Model == "" || strings.EqualFold(rule.Model, model)
 		if pMatch && mMatch {
@@ -233,7 +272,7 @@ func maskSensitiveText(cfg *PluginConfig, text string) string {
 		text = ipRegex.ReplaceAllString(text, ipMaskReplacement)
 	}
 	if cfg.keywordReplacer != nil {
-		text = cfg.keywordReplacer.Replace(text) // 一次遍历替换所有关键词
+		text = cfg.keywordReplacer.Replace(text)
 	}
 	for _, re := range cfg.compiledCustomRegex {
 		text = re.ReplaceAllString(text, maskReplacement)
@@ -256,7 +295,7 @@ func maskEmailFunc(s string) string {
 		return s
 	}
 	local := s[:atIndex]
-	domain := s[atIndex:] // 包含 @ 符号
+	domain := s[atIndex:]
 
 	if len(local) >= 4 {
 		local = local[:3] + "****"
@@ -274,21 +313,40 @@ func maskIDCardFunc(s string) string {
 }
 
 func maskBankCardFunc(s string) string {
-	// 先清理分隔符，再判断长度
 	clean := stripCardSeparators(s)
-	if len(clean) >= minBankCardLength {
-		return clean[:4] + "********" + clean[len(clean)-4:]
+	if len(clean) < minBankCardLength {
+		return s
 	}
-	return s
+
+	// Fast path: no separators
+	if len(clean) == len(s) {
+		return clean[:bankCardKeepPrefix] + "********" + clean[len(clean)-bankCardKeepSuffix:]
+	}
+
+	// Preserve separator positions in the output
+	var buf strings.Builder
+	buf.Grow(len(s) + 8)
+	digitIdx := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == ' ' || s[i] == '-' {
+			buf.WriteByte(s[i])
+			continue
+		}
+		if digitIdx < bankCardKeepPrefix || digitIdx >= len(clean)-bankCardKeepSuffix {
+			buf.WriteByte(s[i])
+		} else {
+			buf.WriteByte('*')
+		}
+		digitIdx++
+	}
+	return buf.String()
 }
 
-// stripCardSeparators 快速去除银行卡号中的空格和连字符
+// stripCardSeparators removes spaces and hyphens from a bank card number.
 func stripCardSeparators(s string) string {
-	// 快速路径：不包含任何分隔符，直接返回
 	if !strings.Contains(s, " ") && !strings.Contains(s, "-") {
 		return s
 	}
-	// 单次遍历构建新字符串，避免多次 ReplaceAll 分配
 	var buf strings.Builder
 	buf.Grow(len(s))
 	for i := 0; i < len(s); i++ {
@@ -301,21 +359,19 @@ func stripCardSeparators(s string) string {
 
 // ── Hook 接口实现 ──────────────────────────────────────────────────
 
-// PreRequestHook 官方 llm-only 示例
+// PreRequestHook is a no-op passthrough.
 func PreRequestHook(_ *schemas.BifrostContext, _ *schemas.BifrostRequest) error {
 	return nil
 }
 
-// PreLLMHook 在 LLM 请求发送前对消息内容进行脱敏。
+// PreLLMHook masks PII in LLM request messages before they are sent.
 func PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
 	cfg := globalConfig.Load()
 
-	// 快速失败：插件未启用或请求无效
 	if !cfg.Enable || req == nil || req.ChatRequest == nil {
 		return req, nil, nil
 	}
-	// 白名单为空或不匹配 → 不脱敏
-	if !shouldDesensitize(cfg, req) {
+	if !shouldMask(cfg, req) {
 		return req, nil, nil
 	}
 
@@ -327,9 +383,9 @@ func PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*sche
 		original := *msg.Content.ContentStr
 		masked := maskSensitiveText(cfg, original)
 		if masked != original {
-			if cfg.LogDesensitized {
+			if cfg.LogMasked {
 				ctx.Log(schemas.LogLevelInfo, fmt.Sprintf(
-					"[PII-Masking] Input text desensitized for %s/%s",
+					"[PII-Masking] Input text masked for %s/%s",
 					req.ChatRequest.Provider, req.ChatRequest.Model,
 				))
 			}
@@ -339,12 +395,12 @@ func PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*sche
 	return req, nil, nil
 }
 
-// PostLLMHook 透传 LLM 响应，不做处理。
+// PostLLMHook passes through the LLM response unchanged.
 func PostLLMHook(_ *schemas.BifrostContext, resp *schemas.BifrostResponse, bifrostErr *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
 	return resp, bifrostErr, nil
 }
 
-// Cleanup 空实现，无需清理资源。
+// Cleanup is a no-op.
 func Cleanup() error {
 	return nil
 }

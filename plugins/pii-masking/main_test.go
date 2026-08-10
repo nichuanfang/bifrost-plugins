@@ -46,12 +46,12 @@ func TestInit(t *testing.T) {
 		},
 		{
 			name:    "empty map",
-			input:   map[string]interface{}{},
+			input:   map[string]any{},
 			wantCfg: defaultConfig(),
 		},
 		{
 			name:  "enable false",
-			input: map[string]interface{}{"enable": false},
+			input: map[string]any{"enable": false},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
 				c.Enable = false
@@ -59,8 +59,22 @@ func TestInit(t *testing.T) {
 			}(),
 		},
 		{
+			name:  "enable string false",
+			input: map[string]any{"enable": "false"},
+			wantCfg: func() *PluginConfig {
+				c := defaultConfig()
+				c.Enable = false
+				return c
+			}(),
+		},
+		{
+			name:    "enable string true",
+			input:   map[string]any{"enable": "true"},
+			wantCfg: defaultConfig(),
+		},
+		{
 			name:  "mask_phone false",
-			input: map[string]interface{}{"mask_phone": false},
+			input: map[string]any{"mask_phone": false},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
 				c.MaskPhone = false
@@ -69,7 +83,7 @@ func TestInit(t *testing.T) {
 		},
 		{
 			name:  "mask_email false",
-			input: map[string]interface{}{"mask_email": false},
+			input: map[string]any{"mask_email": false},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
 				c.MaskEmail = false
@@ -78,7 +92,7 @@ func TestInit(t *testing.T) {
 		},
 		{
 			name:  "mask_id_card false",
-			input: map[string]interface{}{"mask_id_card": false},
+			input: map[string]any{"mask_id_card": false},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
 				c.MaskIDCard = false
@@ -87,7 +101,7 @@ func TestInit(t *testing.T) {
 		},
 		{
 			name:  "mask_bank_card false",
-			input: map[string]interface{}{"mask_bank_card": false},
+			input: map[string]any{"mask_bank_card": false},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
 				c.MaskBankCard = false
@@ -96,7 +110,7 @@ func TestInit(t *testing.T) {
 		},
 		{
 			name:  "mask_ip false",
-			input: map[string]interface{}{"mask_ip": false},
+			input: map[string]any{"mask_ip": false},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
 				c.MaskIP = false
@@ -105,16 +119,16 @@ func TestInit(t *testing.T) {
 		},
 		{
 			name:  "log_desensitized true",
-			input: map[string]interface{}{"log_desensitized": true},
+			input: map[string]any{"log_desensitized": true},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
-				c.LogDesensitized = true
+				c.LogMasked = true
 				return c
 			}(),
 		},
 		{
 			name:  "custom_keywords",
-			input: map[string]interface{}{"custom_keywords": []interface{}{"secret", "classified"}},
+			input: map[string]any{"custom_keywords": []any{"secret", "classified"}},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
 				c.CustomKeywords = []string{"secret", "classified"}
@@ -124,24 +138,23 @@ func TestInit(t *testing.T) {
 		},
 		{
 			name:  "custom_regex",
-			input: map[string]interface{}{"custom_regex": []interface{}{`token_\w+`}},
+			input: map[string]any{"custom_regex": []any{`token_\w+`}},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
 				c.CustomRegex = []string{`token_\w+`}
-				// compiledCustomRegex built from Init; just check pattern list
 				return c
 			}(),
 		},
 		{
 			name: "desensitization_rules",
-			input: map[string]interface{}{
-				"desensitization_rules": []interface{}{
-					map[string]interface{}{"provider": "openai", "model": "gpt-4"},
+			input: map[string]any{
+				"desensitization_rules": []any{
+					map[string]any{"provider": "openai", "model": "gpt-4"},
 				},
 			},
 			wantCfg: func() *PluginConfig {
 				c := defaultConfig()
-				c.DesensitizationRules = []DesensitizationRules{
+				c.MaskingRules = []MaskingRule{
 					{Provider: "openai", Model: "gpt-4"},
 				}
 				return c
@@ -149,12 +162,12 @@ func TestInit(t *testing.T) {
 		},
 		{
 			name:    "wrong type for enable keeps default",
-			input:   map[string]interface{}{"enable": "yes"},
+			input:   map[string]any{"enable": 123},
 			wantCfg: defaultConfig(),
 		},
 		{
 			name: "full config",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"enable":           false,
 				"mask_phone":       false,
 				"mask_email":       false,
@@ -162,21 +175,21 @@ func TestInit(t *testing.T) {
 				"mask_bank_card":   false,
 				"mask_ip":          false,
 				"log_desensitized": true,
-				"custom_keywords":  []interface{}{"top-secret"},
-				"desensitization_rules": []interface{}{
-					map[string]interface{}{"provider": "openai", "model": ""},
+				"custom_keywords":  []any{"top-secret"},
+				"desensitization_rules": []any{
+					map[string]any{"provider": "openai", "model": ""},
 				},
 			},
 			wantCfg: &PluginConfig{
-				Enable:          false,
-				MaskPhone:       false,
-				MaskEmail:       false,
-				MaskIDCard:      false,
-				MaskBankCard:    false,
-				MaskIP:          false,
-				LogDesensitized: true,
-				CustomKeywords:  []string{"top-secret"},
-				DesensitizationRules: []DesensitizationRules{
+				Enable:         false,
+				MaskPhone:      false,
+				MaskEmail:      false,
+				MaskIDCard:     false,
+				MaskBankCard:   false,
+				MaskIP:         false,
+				LogMasked:      true,
+				CustomKeywords: []string{"top-secret"},
+				MaskingRules: []MaskingRule{
 					{Provider: "openai"},
 				},
 			},
@@ -191,7 +204,6 @@ func TestInit(t *testing.T) {
 			}
 			got := globalConfig.Load()
 
-			// For regex tests, verify the compiled count matches
 			if len(tt.wantCfg.compiledCustomRegex) > 0 {
 				if len(got.compiledCustomRegex) != len(tt.wantCfg.compiledCustomRegex) {
 					t.Errorf("compiledCustomRegex count = %d, want %d",
@@ -199,14 +211,12 @@ func TestInit(t *testing.T) {
 				}
 			}
 
-			// For keyword replacer tests
 			if tt.wantCfg.keywordReplacer != nil {
 				if got.keywordReplacer == nil {
 					t.Error("keywordReplacer is nil, want non-nil")
 				}
 			}
 
-			// Zero out unexported fields before comparison
 			gotCopy := *got
 			gotCopy.compiledCustomRegex = tt.wantCfg.compiledCustomRegex
 			gotCopy.keywordReplacer = tt.wantCfg.keywordReplacer
@@ -222,21 +232,21 @@ func TestInit_Reload(t *testing.T) {
 	resetCfg := func() { globalConfig.Store(defaultConfig()) }
 	t.Cleanup(resetCfg)
 
-	Init(map[string]interface{}{"enable": false})
+	Init(map[string]any{"enable": false})
 	if globalConfig.Load().Enable {
 		t.Error("expected Enable=false after first Init")
 	}
-	Init(map[string]interface{}{"enable": true})
+	Init(map[string]any{"enable": true})
 	if !globalConfig.Load().Enable {
 		t.Error("expected Enable=true after reload")
 	}
 }
 
-// ── shouldDesensitize tests ──────────────────────────────────────────
+// ── shouldMask tests ──────────────────────────────────────────────────
 
-func TestShouldDesensitize(t *testing.T) {
-	cfgWithRules := func(rules ...DesensitizationRules) *PluginConfig {
-		return &PluginConfig{DesensitizationRules: rules}
+func TestShouldMask(t *testing.T) {
+	cfgWithRules := func(rules ...MaskingRule) *PluginConfig {
+		return &PluginConfig{MaskingRules: rules}
 	}
 
 	tests := []struct {
@@ -253,63 +263,63 @@ func TestShouldDesensitize(t *testing.T) {
 		},
 		{
 			name: "nil request returns false",
-			cfg:  cfgWithRules(DesensitizationRules{Provider: "openai"}),
+			cfg:  cfgWithRules(MaskingRule{Provider: "openai"}),
 			req:  nil,
 			want: false,
 		},
 		{
 			name: "nil ChatRequest returns false",
-			cfg:  cfgWithRules(DesensitizationRules{Provider: "openai"}),
+			cfg:  cfgWithRules(MaskingRule{Provider: "openai"}),
 			req:  &schemas.BifrostRequest{},
 			want: false,
 		},
 		{
 			name: "exact provider and model match",
-			cfg:  cfgWithRules(DesensitizationRules{Provider: "openai", Model: "gpt-4"}),
+			cfg:  cfgWithRules(MaskingRule{Provider: "openai", Model: "gpt-4"}),
 			req:  newChatReq("openai", "gpt-4"),
 			want: true,
 		},
 		{
 			name: "no match: different provider",
-			cfg:  cfgWithRules(DesensitizationRules{Provider: "openai"}),
+			cfg:  cfgWithRules(MaskingRule{Provider: "openai"}),
 			req:  newChatReq("anthropic", "claude-3"),
 			want: false,
 		},
 		{
 			name: "no match: different model",
-			cfg:  cfgWithRules(DesensitizationRules{Provider: "openai", Model: "gpt-4"}),
+			cfg:  cfgWithRules(MaskingRule{Provider: "openai", Model: "gpt-4"}),
 			req:  newChatReq("openai", "gpt-3.5"),
 			want: false,
 		},
 		{
 			name: "wildcard provider (empty string)",
-			cfg:  cfgWithRules(DesensitizationRules{Provider: "", Model: "gpt-4"}),
+			cfg:  cfgWithRules(MaskingRule{Provider: "", Model: "gpt-4"}),
 			req:  newChatReq("openai", "gpt-4"),
 			want: true,
 		},
 		{
 			name: "wildcard model (empty string)",
-			cfg:  cfgWithRules(DesensitizationRules{Provider: "openai", Model: ""}),
+			cfg:  cfgWithRules(MaskingRule{Provider: "openai", Model: ""}),
 			req:  newChatReq("openai", "any-model"),
 			want: true,
 		},
 		{
 			name: "both wildcard matches all",
-			cfg:  cfgWithRules(DesensitizationRules{}),
+			cfg:  cfgWithRules(MaskingRule{}),
 			req:  newChatReq("any", "any"),
 			want: true,
 		},
 		{
 			name: "case insensitive match",
-			cfg:  cfgWithRules(DesensitizationRules{Provider: "OpenAI", Model: "GPT-4"}),
+			cfg:  cfgWithRules(MaskingRule{Provider: "OpenAI", Model: "GPT-4"}),
 			req:  newChatReq("openai", "gpt-4"),
 			want: true,
 		},
 		{
 			name: "multi rule: second matches",
 			cfg: cfgWithRules(
-				DesensitizationRules{Provider: "anthropic"},
-				DesensitizationRules{Provider: "openai"},
+				MaskingRule{Provider: "anthropic"},
+				MaskingRule{Provider: "openai"},
 			),
 			req:  newChatReq("openai", "gpt-4"),
 			want: true,
@@ -318,8 +328,8 @@ func TestShouldDesensitize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldDesensitize(tt.cfg, tt.req); got != tt.want {
-				t.Errorf("shouldDesensitize() = %v, want %v", got, tt.want)
+			if got := shouldMask(tt.cfg, tt.req); got != tt.want {
+				t.Errorf("shouldMask() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -401,9 +411,9 @@ func TestMaskBankCardFunc(t *testing.T) {
 		{"16-digit card", "6222021234567890", "6222********7890"},
 		{"19-digit card", "6222021234567890123", "6222********0123"},
 		{"13-digit card", "4000123456789", "4000********6789"},
-		{"with spaces", "6222 0212 3456 7890", "6222********7890"},
-		{"with hyphens", "6222-0212-3456-7890", "6222********7890"},
-		{"with mixed separators", "6222 0212-3456 7890", "6222********7890"},
+		{"with spaces", "6222 0212 3456 7890", "6222 **** **** 7890"},
+		{"with hyphens", "6222-0212-3456-7890", "6222-****-****-7890"},
+		{"with mixed separators", "6222 0212-3456 7890", "6222 ****-**** 7890"},
 		{"too short", "123456789012", "123456789012"},
 		{"too short with spaces", "1234 5678 9012", "1234 5678 9012"},
 		{"empty string", "", ""},
@@ -492,6 +502,12 @@ func TestMaskSensitiveText(t *testing.T) {
 			want:  "server ***.***.***.*** is down",
 		},
 		{
+			name:  "invalid IP not masked",
+			cfg:   fullCfg,
+			input: "address 999.999.999.999 is invalid",
+			want:  "address 999.999.999.999 is invalid",
+		},
+		{
 			name:  "mask multiple types",
 			cfg:   fullCfg,
 			input: "phone: 13812345678, email: test@example.com",
@@ -535,7 +551,6 @@ func TestMaskSensitiveText(t *testing.T) {
 func TestMaskSensitiveText_CustomRegex(t *testing.T) {
 	cfg := defaultConfig()
 	cfg.CustomRegex = []string{`token_\w+`, `secret_\w+`}
-	// Manually compile (normally done in Init)
 	cfg.compiledCustomRegex = make([]*regexp.Regexp, 0)
 	for _, p := range cfg.CustomRegex {
 		cfg.compiledCustomRegex = append(cfg.compiledCustomRegex, regexp.MustCompile(p))
@@ -545,6 +560,50 @@ func TestMaskSensitiveText_CustomRegex(t *testing.T) {
 	want := "api key: ****** and ****** are sensitive"
 	if got := maskSensitiveText(cfg, input); got != want {
 		t.Errorf("maskSensitiveText() = %q, want %q", got, want)
+	}
+}
+
+func TestMaskSensitiveText_IPEdgeCases(t *testing.T) {
+	cfg := defaultConfig()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "valid IP masked",
+			input: "connect to 192.168.1.1 now",
+			want:  "connect to ***.***.***.*** now",
+		},
+		{
+			name:  "IP preceded by hostname is masked",
+			input: "localhost 127.0.0.1 test",
+			want:  "localhost ***.***.***.*** test",
+		},
+		{
+			name:  "invalid octet >255 not masked",
+			input: "address 999.999.999.999",
+			want:  "address 999.999.999.999",
+		},
+		{
+			name:  "valid IP at sentence start",
+			input: "10.0.0.1 is the gateway",
+			want:  "***.***.***.*** is the gateway",
+		},
+		{
+			name:  "valid IP at sentence end",
+			input: "the gateway is 10.0.0.1",
+			want:  "the gateway is ***.***.***.***",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := maskSensitiveText(cfg, tt.input); got != tt.want {
+				t.Errorf("maskSensitiveText() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -597,8 +656,8 @@ func TestPreLLMHook(t *testing.T) {
 			},
 		},
 		{
-			name:    "pass-through: no desensitization rules",
-			cfg:     fullCfgNoRules(), // all masking on but no rules
+			name:    "pass-through: no masking rules",
+			cfg:     fullCfgNoRules(),
 			req:     newChatReqWithText("openai", "gpt-4", "phone: 13812345678"),
 			wantErr: false,
 			check: func(t *testing.T, req *schemas.BifrostRequest) {
@@ -610,7 +669,7 @@ func TestPreLLMHook(t *testing.T) {
 		},
 		{
 			name:    "pass-through: model not in rules",
-			cfg:     fullCfgWithRules(DesensitizationRules{Provider: "openai", Model: "gpt-4"}),
+			cfg:     fullCfgWithRules(MaskingRule{Provider: "openai", Model: "gpt-4"}),
 			req:     newChatReqWithText("openai", "gpt-3.5", "phone: 13812345678"),
 			wantErr: false,
 			check: func(t *testing.T, req *schemas.BifrostRequest) {
@@ -622,7 +681,7 @@ func TestPreLLMHook(t *testing.T) {
 		},
 		{
 			name:    "masks phone when rule matches",
-			cfg:     fullCfgWithRules(DesensitizationRules{Provider: "openai", Model: "gpt-4"}),
+			cfg:     fullCfgWithRules(MaskingRule{Provider: "openai", Model: "gpt-4"}),
 			req:     newChatReqWithText("openai", "gpt-4", "call 13812345678"),
 			wantErr: false,
 			check: func(t *testing.T, req *schemas.BifrostRequest) {
@@ -637,7 +696,7 @@ func TestPreLLMHook(t *testing.T) {
 		},
 		{
 			name:    "wildcard rule matches all models",
-			cfg:     fullCfgWithRules(DesensitizationRules{Provider: "openai", Model: ""}),
+			cfg:     fullCfgWithRules(MaskingRule{Provider: "openai", Model: ""}),
 			req:     newChatReqWithText("openai", "gpt-3.5", "email: user@example.com"),
 			wantErr: false,
 			check: func(t *testing.T, req *schemas.BifrostRequest) {
@@ -649,7 +708,7 @@ func TestPreLLMHook(t *testing.T) {
 		},
 		{
 			name:    "msg with nil Content skipped",
-			cfg:     fullCfgWithRules(DesensitizationRules{Provider: "", Model: ""}),
+			cfg:     fullCfgWithRules(MaskingRule{Provider: "", Model: ""}),
 			req:     newChatReq("openai", "gpt-4"),
 			wantErr: false,
 			check: func(t *testing.T, req *schemas.BifrostRequest) {
@@ -678,7 +737,7 @@ func TestPreLLMHook_MultipleMessages(t *testing.T) {
 	resetCfg := func() { globalConfig.Store(defaultConfig()) }
 	t.Cleanup(resetCfg)
 
-	globalConfig.Store(fullCfgWithRules(DesensitizationRules{Provider: "", Model: ""}))
+	globalConfig.Store(fullCfgWithRules(MaskingRule{Provider: "", Model: ""}))
 
 	text1 := "my phone: 13812345678"
 	text2 := "my email: test@example.com"
@@ -703,6 +762,57 @@ func TestPreLLMHook_MultipleMessages(t *testing.T) {
 	}
 	if strings.Contains(*req.ChatRequest.Input[1].Content.ContentStr, "test@example.com") {
 		t.Error("second message email should be masked")
+	}
+}
+
+// ── IP regex validation tests ────────────────────────────────────────
+
+func TestIPRegex(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		setup    func(*PluginConfig)
+	}{
+		{
+			name:     "valid private IP",
+			input:    "server 192.168.1.1 is down",
+			expected: "server ***.***.***.*** is down",
+		},
+		{
+			name:     "valid public IP",
+			input:    "address 8.8.8.8 dns",
+			expected: "address ***.***.***.*** dns",
+		},
+		{
+			name:     "IP with leading zeros in octet still masked",
+			input:    "ip 10.0.0.01",
+			expected: "ip ***.***.***.***",
+		},
+		{
+			name:     "out of range octet not masked",
+			input:    "ip 999.999.999.999 invalid",
+			expected: "ip 999.999.999.999 invalid",
+		},
+		{
+			name:     "incomplete IP",
+			input:    "version 192.168.1",
+			expected: "version 192.168.1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := defaultConfig()
+			cfg.MaskPhone = false
+			cfg.MaskEmail = false
+			cfg.MaskIDCard = false
+			cfg.MaskBankCard = false
+			got := maskSensitiveText(cfg, tt.input)
+			if got != tt.expected {
+				t.Errorf("maskSensitiveText(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
 	}
 }
 
@@ -736,13 +846,13 @@ func newChatReqWithText(provider, model, text string) *schemas.BifrostRequest {
 
 func fullCfgNoRules() *PluginConfig {
 	c := defaultConfig()
-	c.DesensitizationRules = nil
+	c.MaskingRules = nil
 	return c
 }
 
-func fullCfgWithRules(rules ...DesensitizationRules) *PluginConfig {
+func fullCfgWithRules(rules ...MaskingRule) *PluginConfig {
 	c := defaultConfig()
-	c.DesensitizationRules = rules
+	c.MaskingRules = rules
 	return c
 }
 
